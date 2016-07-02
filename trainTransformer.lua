@@ -45,7 +45,6 @@ local targetCategories = torch.CudaTensor()
 local paletteCheckerParameters, paletteCheckerGradParameters = nil, nil
 
 local function makeCheckerImage(model, opt, img)
-    img = torchUtil.caffePreprocess(img)
     local cudaImg = torch.CudaTensor(1, 3, img:size()[2], img:size()[3])
     cudaImg:copy(img)
     model.vggNet:forward(cudaImg)

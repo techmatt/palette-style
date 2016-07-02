@@ -10,13 +10,14 @@ function M.computePalettes(opt, model, dir)
     local imageList = util.getFileListRecursive(dir)
     for _, filename in ipairs(imageList) do
         local img = image.load(filename, 3, 'float')
+        img = torchUtil.caffePreprocess(img):cuda()
         model.vggNet:forward(img)
         for _, layer in pairs(model.styleLayers) do
             local saveFilename = opt.styleCacheDir .. util.filenameFromPath(filename):gsub('.jpg', '_') .. layer.name .. '.dat'
             
             if not util.fileExists(saveFilename) then
                 print('saving ' .. saveFilename .. ' ' .. torchUtil.getSize(layer.output))
-                torch.save(saveFilename, layer.output)
+                torch.save(saveFilename, layer.output:float())
             end
         end
     end

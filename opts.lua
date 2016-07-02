@@ -10,10 +10,13 @@ function M.parse(arg)
     
     ------------ Network  options ---------------
     cmd:option('-outBaseDir', 'out', 'TODO')
-    cmd:option('-imageListBase', 'data/places', 'TODO')
+    cmd:option('-imageList', 'data/imageListCOCO.txt', 'TODO')
     
     cmd:option('-paletteBatchSize', 256, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-paletteSuperBatches', 1, 'TODO')
+    
+    cmd:option('-transformerBatchSize', 8, 'mini-batch size (1 = pure stochastic)')
+    cmd:option('-transformerSuperBatches', 1, 'TODO')
     
     cmd:option('-imageSize', 256, 'Smallest side of the resized image')
     cmd:option('-cropSize', 224, 'Height and Width of image crop to be used as input layer')
@@ -27,10 +30,16 @@ function M.parse(arg)
                                 relu3_2={channels=256},
                                 relu4_1={channels=512},
                                 },'TODO')
-    cmd:option('-activeStyleLayer', 'relu3_2', 'The name of the style layer currently being trained')
+    cmd:option('-activeStyleLayer', 'relu4_1', 'The name of the style layer currently being trained')
     cmd:option('-negativePaletteRate', 0.75, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
+    cmd:option('-contentWeight', 1.0, 'TODO')
+    cmd:option('-palette1Weight', 1.0, 'TODO')
+    cmd:option('-palette2Weight', 1.0, 'TODO')
+    
+    
+    cmd:option('-trainTransformer', false, 'TODO')
     
     cmd:option('-styleCacheDir', 'styleCache/', 'TODO')
     
@@ -46,6 +55,10 @@ function M.parse(arg)
     local opt = cmd:parse(arg or {})
     
     opt.paletteBorder = (opt.paletteDimension - 1) / 2
+    
+    opt.styleLayersList = {}
+    opt.styleLayersList[1] = 'relu3_2'
+    opt.styleLayersList[2] = 'relu4_1'
     
     return opt
 end
