@@ -26,14 +26,12 @@ function M.loadPalettes(opt, model, imageDir)
     local imageList = util.getFileListRecursive(imageDir)
     local result = {}
     for _, filename in ipairs(imageList) do
-        local palettes = {}
-        for _, layer in pairs(model.styleLayers) do
-            local saveFilename = opt.styleCacheDir .. util.filenameFromPath(filename):gsub('.jpg', '_') .. layer.name .. '.dat'
-            palettes[layer.name] = torch.load(saveFilename)
-            print('loaded ' .. saveFilename .. ' ' .. torchUtil.getSize(palettes[layer.name]))
-        end
+        local saveFilename = opt.styleCacheDir .. util.filenameFromPath(filename):gsub('.jpg', '_') .. opt.activeStyleLayer .. '.dat'
+        local palettes = torch.load(saveFilename)
+        print('loaded ' .. saveFilename .. ' ' .. torchUtil.getSize(palettes))
         table.insert(result, palettes)
     end
+    return result
 end
 
 function M.makePaletteLoader(opt, model)
@@ -41,46 +39,50 @@ function M.makePaletteLoader(opt, model)
     local result = {}
     result.donkeys = threadPool.makeThreadPool(opt)
     result.opt = opt
-    result.positives = M.loadPalettes(opt, model, 'images/positives')
-    result.negatives = M.loadPalettes(opt, model, 'images/negatives')
+    result.positives = M.loadPalettes(opt, model, 'images/positives/')
+    result.negatives = M.loadPalettes(opt, model, 'images/negatives/')
     
     return result
 end
 
 function M.samplePalette(paletteTensor, outTensor, paletteDimension)
-    local paletteBorder = (paletteDimension - 1) / 2
-    local x = torch.random(1 + paletteBorder, paletteTensor:size()[2] - paletteBorder)
-    local y = torch.random(1 + paletteBorder, paletteTensor:size()[3] - paletteBorder)
+    local x = torch.random(1, paletteTensor:size()[2] - paletteDimension)
+    local y = torch.random(1, paletteTensor:size()[3] - paletteDimension)
+    
+    --print('palette size: ' .. torchUtil.getSize(paletteTensor))
+    --print(x)
+    --print(y)
+    
     local sample = paletteTensor:narrow(2, x, paletteDimension):narrow(3, y, paletteDimension)
     outTensor:copy(sample)
 end
 
-function M.sampleBatch(paletteLoader, layerName)
+function M.sampleBatch(paletteLoader)
     local opt = paletteLoader.opt
     local positives = paletteLoader.positives
     local negatives = paletteLoader.negatives
-    local donkeys = audioLoader.donkeys
+    local donkeys = paletteLoader.donkeys
 
-    local layerInfo = opt.styleLayers[layerName]
-    local palettes = torch.FloatTensor(opt.paletteBatchSize, layerInfo.channels, 5, 5)
-    local classLabels = torch.IntTensor(opt.paletteBatchSize)
+    local layerInfo = opt.styleLayers[opt.activeStyleLayer]
+    local palettes = torch.FloatTensor(opt.paletteBatchSize, layerInfo.channels, opt.paletteDimension, opt.paletteDimension)
+    local targetCategories = torch.IntTensor(opt.paletteBatchSize, 1, 1, 1)
     
     for b = 1, opt.paletteBatchSize do
         local isNegative = torch.uniform(0.0, 1.0) < opt.negativePaletteRate
         local paletteList
         if isNegative then
             paletteList = negatives
-            classLabels[b] = 1
+            targetCategories[b][1][1][1] = 1
         else
             paletteList = positives
-            classLabels[b] = 2
+            targetCategories[b][1][1][1] = 2
         end
          
         local randomPalette = paletteList[ math.random( #paletteList ) ]
         
         donkeys:addjob(
             function()
-                M.samplePalette(randomPalette, palettes[b])
+                M.samplePalette(randomPalette, palettes[b], opt.paletteDimension)
             end,
             function()
                 
@@ -90,7 +92,7 @@ function M.sampleBatch(paletteLoader, layerName)
     
     local batch = {}
     batch.palettes = palettes
-    batch.classLabels = classLabels
+    batch.targetCategories = targetCategories
     return batch
 end
 

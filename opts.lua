@@ -27,6 +27,7 @@ function M.parse(arg)
                                 relu3_2={channels=256},
                                 relu4_1={channels=512},
                                 },'TODO')
+    cmd:option('-activeStyleLayer', 'relu3_2', 'The name of the style layer currently being trained')
     cmd:option('-negativePaletteRate', 0.75, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
