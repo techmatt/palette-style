@@ -17,8 +17,10 @@ local paletteLoader = require('paletteLoader')
 --local train = require('trainThumbnailUpsampler')
 
 local model = models.createModel(opt)
-paletteLoader.computePalettes(opt, model, 'images/positives/')
-paletteLoader.computePalettes(opt, model, 'images/negatives/')
+--paletteLoader.computePalettes(opt, model, 'images/positives/')
+--paletteLoader.computePalettes(opt, model, 'images/negatives/')
+
+local pLoader = paletteLoader.makePaletteLoader(opt, model)
 
 do return end
 --local imgLoader = imageLoader.makeImageLoader(opt)
