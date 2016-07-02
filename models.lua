@@ -54,6 +54,8 @@ end
 local function createVGG(opt)
     local vggIn = loadcaffe.load('models/VGG_ILSVRC_19_layers_deploy.prototxt',
                                  'models/VGG_ILSVRC_19_layers.caffemodel', 'nn'):float()
+    cudnn.convert(vggIn, cudnn)
+    vggIn = vggIn:cuda()
     local vggOut = nn.Sequential()
     
     local styleLayers = {}
@@ -69,7 +71,7 @@ local function createVGG(opt)
         end
         if opt.styleLayers[layer.name] then
             print('adding style layer ' .. layer.name)
-            table.insert(styleLayers, layer)
+            styleLayers[layer.name] = layer
         end
         vggOut:add(layer)
     end
@@ -79,14 +81,23 @@ local function createVGG(opt)
     return vggOut, contentLayer, styleLayers
 end
 
+local function addPaletteConv(network,iChannels,oChannels,sizeX,sizeY)
+    network:add(cudnn.SpatialConvolution(iChannels,oChannels,sizeX,sizeY,1,1,0,0))
+    network:add(cudnn.SpatialBatchNormalization(oChannels,1e-3))
+    network:add(cudnn.ReLU(true))
+end
+
 local function createPaletteCheckerA(opt)
     local network = nn.Sequential()
 
-    addConvElement(network, 256, 256, 1, 1, 0) -- 256x5x5
-    addConvElement(network, 256, 128, 5, 1, 0) -- 128x5x5
-    addConvElement(network, 128, 128, 3, 1, 0) -- 128x3x3
-    addConvElement(network, 128, 128, 3, 1, 0) -- 128x1x1
-    addConvElement(network, 128, 2, 1, 1, 0)   -- 2x1x1
+    addPaletteConv(network, 256, 256, 1, 1) -- 256x5x5
+    addPaletteConv(network, 256, 256, 3, 1) -- 256x3x5
+    addPaletteConv(network, 256, 256, 1, 3) -- 256x3x3
+    addPaletteConv(network, 256, 256, 1, 1) -- 256x3x3
+    addPaletteConv(network, 256, 256, 3, 1) -- 256x1x3
+    addPaletteConv(network, 256, 256, 1, 3) -- 256x1x1
+    addPaletteConv(network, 256, 256, 1, 1) -- 256x1x1
+    network:add(cudnn.SpatialConvolution(256,2,1,1,1,1,0,0))
     
     --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
     

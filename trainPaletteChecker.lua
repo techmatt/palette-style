@@ -2,7 +2,7 @@
 local paletteLoader = require('paletteLoader')
 local torchUtil = require('torchUtil')
 
-local debugBatchIndices = {[10]=true, [6000]=true, [20000]=true}
+local debugBatchIndices = {[6000]=true, [20000]=true}
 -- local debugBatchIndices = {[5]=true}
 --local debugBatchIndices = {}
 
@@ -14,7 +14,7 @@ local optimStatePaletteChecker = {
 local function paramsForEpoch(epoch)
     local regimes = {
         -- start, end,    LR,   WD,
-        {  1,     1,   1e-3,   0 },
+        {  1,     1,   1e-4,   0 },
         {  2,     2,   1e-4,   0 },
         {  3,     5,   1e-4,   0 },
         {  6,     10,   1e-4,   0 },
@@ -44,6 +44,20 @@ local targetCategories = torch.CudaTensor()
 
 local paletteCheckerParameters, paletteCheckerGradParameters = nil, nil
 
+local function makeCheckerImage(model, opt, img)
+    local cudaImg = torch.CudaTensor(1, 3, img:size()[2], img:size()[3])
+    cudaImg:copy(img)
+    model.vggNet:forward(cudaImg)
+    local styleData = model.styleLayers[opt.activeStyleLayer].output:clone()
+    
+    model.paletteCheckerNet:evaluate()
+    local unnormProbs = model.paletteCheckerA:forward(styleData):float()
+    local probs = nn.SpatialSoftMax():forward(unnormProbs)
+    local positiveProbs = probs:narrow(2, 2, 1)
+    --print(positiveProbs:size())
+    return positiveProbs[1]
+end
+
 local function trainPaletteChecker(model, loader, opt, epoch)
     
     if paletteCheckerParameters == nil then paletteCheckerParameters, paletteCheckerGradParameters = model.paletteCheckerNet:getParameters() end
@@ -60,7 +74,7 @@ local function trainPaletteChecker(model, loader, opt, epoch)
     local feval = function(x)
         model.paletteCheckerNet:zeroGradParameters()
         
-        for superBatch = 1, opt.paletteBatchSize do
+        for superBatch = 1, opt.paletteSuperBatches do
             local loadTimeStart = dataTimer:time().real
             local batch = paletteLoader.sampleBatch(loader)
             local loadTimeEnd = dataTimer:time().real
@@ -69,6 +83,10 @@ local function trainPaletteChecker(model, loader, opt, epoch)
             palettes:resize(batch.palettes:size()):copy(batch.palettes)
             targetCategories:resize(batch.targetCategories:size()):copy(batch.targetCategories)
             
+            local dumpPaletteNet = false
+            if dumpPaletteNet then
+                torchUtil.dumpNet(model.paletteCheckerA, palettes, 'dump/')
+            end
             local outputLoss = model.paletteCheckerNet:forward({palettes, targetCategories})
             classificationLossSum = classificationLossSum + outputLoss[1]
             model.paletteCheckerNet:backward({palettes, targetCategories}, outputLoss)
@@ -90,6 +108,18 @@ local function trainPaletteChecker(model, loader, opt, epoch)
     optim.adam(feval, paletteCheckerParameters, optimStatePaletteChecker)
 
     if totalBatchCount % 100 == 0 then
+        local randomNegativeImage = paletteLoader.randomImage(loader, 1)
+        local randomPositiveImage = paletteLoader.randomImage(loader, 2)
+        
+        local negativeProbs = makeCheckerImage(model, opt, randomNegativeImage)
+        local positiveProbs = makeCheckerImage(model, opt, randomPositiveImage)
+        
+        image.save(opt.outDir .. 'samples/' .. totalBatchCount .. '_negativeImg.jpg', randomNegativeImage)
+        image.save(opt.outDir .. 'samples/' .. totalBatchCount .. '_negativeProbs.jpg', negativeProbs)
+        
+        image.save(opt.outDir .. 'samples/' .. totalBatchCount .. '_positiveImg.jpg', randomPositiveImage)
+        image.save(opt.outDir .. 'samples/' .. totalBatchCount .. '_positiveProbs.jpg', positiveProbs)
+        
         --local batch = audioLoader.sampleBatch(loader, -1)
         --print(batch.audioClips[5]:size())
         --local waveOut = torchUtil.denormWaveform(batch.audioClips[5][1]):mul(1e8)

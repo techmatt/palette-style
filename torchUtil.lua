@@ -61,22 +61,6 @@ local function describeNet(network, inputs)
     end
 end
 
-local function dumpNet(network, inputs, dir)
-    lfs.mkdir(dir)
-    print('dumping network, input size: ' .. getSize(inputs))
-    local subnet = nn.Sequential()
-    for i, module in ipairs(network:listModules()) do
-        local moduleType = torch.type(module)
-        --print('module ' .. i .. ': ' .. moduleType)
-        if tostring(moduleType) ~= 'nn.Sequential' then
-            subnet:add(module)
-            local outputs = subnet:forward(inputs)
-            print('module ' .. i .. ': ' .. getSize(outputs) .. ': ' .. tostring(module))
-            saveTensor(outputs, dir .. i .. '_' .. moduleType .. '.csv')
-        end
-    end
-end
-
 local function dumpGraph(graph, filename)
     local function trainingDesc(s)
         if s then return 'training'
@@ -182,6 +166,22 @@ local function saveTensor(tensor, filename)
         saveTensor4(tensor, filename)
     else
         print('Unknown tensor!')
+    end
+end
+
+local function dumpNet(network, inputs, dir)
+    lfs.mkdir(dir)
+    print('dumping network, input size: ' .. getSize(inputs))
+    local subnet = nn.Sequential()
+    for i, module in ipairs(network:listModules()) do
+        local moduleType = torch.type(module)
+        --print('module ' .. i .. ': ' .. moduleType)
+        if tostring(moduleType) ~= 'nn.Sequential' then
+            subnet:add(module)
+            local outputs = subnet:forward(inputs)
+            print('module ' .. i .. ': ' .. getSize(outputs) .. ': ' .. tostring(module))
+            saveTensor(outputs, dir .. i .. '_' .. moduleType .. '.csv')
+        end
     end
 end
 

@@ -25,11 +25,14 @@ end
 function M.loadPalettes(opt, model, imageDir)
     local imageList = util.getFileListRecursive(imageDir)
     local result = {}
-    for _, filename in ipairs(imageList) do
-        local saveFilename = opt.styleCacheDir .. util.filenameFromPath(filename):gsub('.jpg', '_') .. opt.activeStyleLayer .. '.dat'
-        local palettes = torch.load(saveFilename)
-        print('loaded ' .. saveFilename .. ' ' .. torchUtil.getSize(palettes))
-        table.insert(result, palettes)
+    for _, imageFilename in ipairs(imageList) do
+        local saveFilename = opt.styleCacheDir .. util.filenameFromPath(imageFilename):gsub('.jpg', '_') .. opt.activeStyleLayer .. '.dat'
+        local entry = {
+            image = image.load(imageFilename, 3, 'float'),
+            palette = torch.load(saveFilename)
+            }
+        print('loaded ' .. saveFilename .. ' ' .. torchUtil.getSize(entry.palette))
+        table.insert(result, entry)
     end
     return result
 end
@@ -57,6 +60,16 @@ function M.samplePalette(paletteTensor, outTensor, paletteDimension)
     outTensor:copy(sample)
 end
 
+function M.randomImage(paletteLoader, category)
+    local paletteList
+    if category == 1 then
+        paletteList = paletteLoader.negatives
+    else
+        paletteList = paletteLoader.positives
+    end
+    return paletteList[ math.random( #paletteList ) ].image
+end
+
 function M.sampleBatch(paletteLoader)
     local opt = paletteLoader.opt
     local positives = paletteLoader.positives
@@ -65,20 +78,20 @@ function M.sampleBatch(paletteLoader)
 
     local layerInfo = opt.styleLayers[opt.activeStyleLayer]
     local palettes = torch.FloatTensor(opt.paletteBatchSize, layerInfo.channels, opt.paletteDimension, opt.paletteDimension)
-    local targetCategories = torch.IntTensor(opt.paletteBatchSize, 1, 1, 1)
+    local targetCategories = torch.IntTensor(opt.paletteBatchSize, 1, 1)
     
     for b = 1, opt.paletteBatchSize do
         local isNegative = torch.uniform(0.0, 1.0) < opt.negativePaletteRate
         local paletteList
         if isNegative then
             paletteList = negatives
-            targetCategories[b][1][1][1] = 1
+            targetCategories[b][1][1] = 1
         else
             paletteList = positives
-            targetCategories[b][1][1][1] = 2
+            targetCategories[b][1][1] = 2
         end
          
-        local randomPalette = paletteList[ math.random( #paletteList ) ]
+        local randomPalette = paletteList[ math.random( #paletteList ) ].palette
         
         donkeys:addjob(
             function()
