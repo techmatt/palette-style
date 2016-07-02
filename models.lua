@@ -52,8 +52,6 @@ local function addResidualBlock(network,iChannels,oChannels,size,stride,padding)
 end
 
 local function createVGG(opt)
-    local contentBatch = torch.FloatTensor(opt.batchSize, 3, opt.cropSize, opt.cropSize)
-    
     local vggIn = loadcaffe.load('models/VGG_ILSVRC_19_layers_deploy.prototxt',
                                  'models/VGG_ILSVRC_19_layers.caffemodel', 'nn'):float()
     local vggOut = nn.Sequential()

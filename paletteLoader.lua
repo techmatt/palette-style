@@ -47,4 +47,51 @@ function M.makePaletteLoader(opt, model)
     return result
 end
 
+function M.samplePalette(paletteTensor, outTensor, paletteDimension)
+    local paletteBorder = (paletteDimension - 1) / 2
+    local x = torch.random(1 + paletteBorder, paletteTensor:size()[2] - paletteBorder)
+    local y = torch.random(1 + paletteBorder, paletteTensor:size()[3] - paletteBorder)
+    local sample = paletteTensor:narrow(2, x, paletteDimension):narrow(3, y, paletteDimension)
+    outTensor:copy(sample)
+end
+
+function M.sampleBatch(paletteLoader, layerName)
+    local opt = paletteLoader.opt
+    local positives = paletteLoader.positives
+    local negatives = paletteLoader.negatives
+    local donkeys = audioLoader.donkeys
+
+    local layerInfo = opt.styleLayers[layerName]
+    local palettes = torch.FloatTensor(opt.paletteBatchSize, layerInfo.channels, 5, 5)
+    local classLabels = torch.IntTensor(opt.paletteBatchSize)
+    
+    for b = 1, opt.paletteBatchSize do
+        local isNegative = torch.uniform(0.0, 1.0) < opt.negativePaletteRate
+        local paletteList
+        if isNegative then
+            paletteList = negatives
+            classLabels[b] = 1
+        else
+            paletteList = positives
+            classLabels[b] = 2
+        end
+         
+        local randomPalette = paletteList[ math.random( #paletteList ) ]
+        
+        donkeys:addjob(
+            function()
+                M.samplePalette(randomPalette, palettes[b])
+            end,
+            function()
+                
+            end)
+    end
+    donkeys:synchronize()
+    
+    local batch = {}
+    batch.palettes = palettes
+    batch.classLabels = classLabels
+    return batch
+end
+
 return M
