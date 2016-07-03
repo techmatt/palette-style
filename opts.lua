@@ -15,8 +15,8 @@ function M.parse(arg)
     cmd:option('-paletteBatchSize', 256, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-paletteSuperBatches', 1, 'TODO')
     
-    cmd:option('-transformerBatchSize', 4, 'mini-batch size (1 = pure stochastic)')
-    cmd:option('-transformerSuperBatches', 1, 'TODO')
+    cmd:option('-transformerBatchSize', 12, 'mini-batch size (1 = pure stochastic)')
+    cmd:option('-transformerSuperBatches', 4, 'TODO')
     
     cmd:option('-imageSize', 256, 'Smallest side of the resized image')
     cmd:option('-cropSize', 224, 'Height and Width of image crop to be used as input layer')
@@ -29,7 +29,7 @@ function M.parse(arg)
     cmd:option('-styleLayers', { [1] = { name = 'relu3_2', channels = 256, finalDim = 52 },
                                  [2] = { name = 'relu4_1', channels = 512, finalDim = 24 },
                                  }, 'TODO')
-    cmd:option('-activeStyleLayerIndex', 1, 'The index into styleLayers currently being trained')
+    cmd:option('-activeStyleLayerIndex', 2, 'The index into styleLayers currently being trained')
     cmd:option('-negativePaletteRate', 0.75, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
@@ -37,7 +37,7 @@ function M.parse(arg)
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     
-    cmd:option('-trainTransformer', false, 'TODO')
+    cmd:option('-trainTransformer', true, 'TODO')
     
     cmd:option('-styleCacheDir', 'styleCache/', 'TODO')
     

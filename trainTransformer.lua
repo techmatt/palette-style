@@ -2,7 +2,7 @@
 local imageLoader = require('imageLoader')
 local torchUtil = require('torchUtil')
 
-local debugBatchIndices = {[0]=true, [6000]=true, [20000]=true}
+local debugBatchIndices = {[200]=true, [6000]=true, [20000]=true}
 -- local debugBatchIndices = {[5]=true}
 --local debugBatchIndices = {}
 
@@ -14,7 +14,7 @@ local optimStateTransformer = {
 local function paramsForEpoch(epoch)
     local regimes = {
         -- start, end,    LR,   WD,
-        {  1,     1,   1e-4,   0 },
+        {  1,     1,   1e-3,   0 },
         {  2,     2,   1e-4,   0 },
         {  3,     5,   1e-4,   0 },
         {  6,     10,   1e-4,   0 },
@@ -52,12 +52,12 @@ local function trainTransformer(model, loader, opt, epoch)
     
     cutorch.synchronize()
 
-    targetCategories1:resize(opt.transformerBatchSize, opt.styleLayers[1].finalDim, opt.styleLayers[1].finalDim):fill(1)
-    targetCategories2:resize(opt.transformerBatchSize, opt.styleLayers[2].finalDim, opt.styleLayers[2].finalDim):fill(1)
+    targetCategories1:resize(opt.transformerBatchSize, opt.styleLayers[1].finalDim, opt.styleLayers[1].finalDim):fill(2)
+    targetCategories2:resize(opt.transformerBatchSize, opt.styleLayers[2].finalDim, opt.styleLayers[2].finalDim):fill(2)
     
     model.styleNet:training()
-    model.paletteCheckers[1]:evaluate()
-    model.paletteCheckers[2]:evaluate()
+    --model.paletteCheckers[1]:evaluate()
+    --model.paletteCheckers[2]:evaluate()
     
     local dataLoadingTime = 0
     timer:reset()
@@ -90,6 +90,17 @@ local function trainTransformer(model, loader, opt, epoch)
             
             if superBatch == 1 and debugBatchIndices[totalBatchCount] then
                 torchUtil.dumpGraph(model.styleNet, opt.outDir .. 'styleNet' .. totalBatchCount .. '.csv')
+            end
+            
+            if superBatch == 1 and totalBatchCount % 100 == 0 then
+                local inClone = RGBImagesCaffe[1]:clone()
+                inClone = torchUtil.caffeDeprocess(inClone)
+                
+                local outClone = model.transformerOutput.data.module.output[1]:clone()
+                outClone = torchUtil.caffeDeprocess(outClone)
+                
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_in.jpg', inClone)
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_out.jpg', outClone)
             end
         end
         

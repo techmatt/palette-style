@@ -212,7 +212,7 @@ local function createStyleNet(opt, subnets, vggLayers)
     cudnn.convert(styleNet, cudnn)
     styleNet = styleNet:cuda()
     graph.dot(styleNet.fg, 'styleNet', 'styleNet')
-    return styleNet
+    return styleNet, transformerOutput
 end
 
 local function createModel(opt)
@@ -248,7 +248,7 @@ local function createModel(opt)
             r.paletteCheckers[i] = subnets.finalPaletteCheckers[i]
             print('loaded ' .. filename)
         end
-        r.styleNet = createStyleNet(opt, subnets, r.vggLayers)
+        r.styleNet, r.transformerOutput = createStyleNet(opt, subnets, r.vggLayers)
     else
         r.paletteCheckerNet = createPaletteCheckerNet(opt, subnets)
     end
