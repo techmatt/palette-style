@@ -49,7 +49,7 @@ local function makeCheckerImage(model, opt, img)
     local cudaImg = torch.CudaTensor(1, 3, img:size()[2], img:size()[3])
     cudaImg:copy(img)
     model.vggNet:forward(cudaImg)
-    local styleData = model.styleLayers[opt.activeStyleLayer].output:clone()
+    local styleData = model.styleLayers[opt.activeStyleLayerName].output:clone()
     
     model.paletteCheckerNet:evaluate()
     local unnormProbs = model.activePaletteChecker:forward(styleData):float()

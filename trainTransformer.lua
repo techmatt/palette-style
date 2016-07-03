@@ -2,7 +2,7 @@
 local imageLoader = require('imageLoader')
 local torchUtil = require('torchUtil')
 
-local debugBatchIndices = {[10]=true, [6000]=true, [20000]=true}
+local debugBatchIndices = {[0]=true, [6000]=true, [20000]=true}
 -- local debugBatchIndices = {[5]=true}
 --local debugBatchIndices = {}
 
@@ -52,6 +52,9 @@ local function trainTransformer(model, loader, opt, epoch)
     
     cutorch.synchronize()
 
+    targetCategories1:resize(opt.transformerBatchSize, opt.styleLayers[1].finalDim, opt.styleLayers[1].finalDim):fill(1)
+    targetCategories2:resize(opt.transformerBatchSize, opt.styleLayers[2].finalDim, opt.styleLayers[2].finalDim):fill(1)
+    
     model.styleNet:training()
     model.paletteCheckers[1]:evaluate()
     model.paletteCheckers[2]:evaluate()
@@ -76,8 +79,6 @@ local function trainTransformer(model, loader, opt, epoch)
             targetContents:resize(targetContentsOut:size()):copy(targetContentsOut)
             
             --sourceImage, sourceContent, paletteCategories1, paletteCategories2
-            print(RGBImagesCaffe:size())
-            print(targetContents:size())
             local outputLoss = model.styleNet:forward({RGBImagesCaffe, targetContents, targetCategories1, targetCategories2})
             
             contentLossSum = contentLossSum + outputLoss[1][1]
@@ -93,8 +94,8 @@ local function trainTransformer(model, loader, opt, epoch)
         end
         
         model.vggNet:zeroGradParameters()
-        model.r.paletteCheckers[1]:zeroGradParameters()
-        model.r.paletteCheckers[2]:zeroGradParameters()
+        model.paletteCheckers[1]:zeroGradParameters()
+        model.paletteCheckers[2]:zeroGradParameters()
         
         return totalLossSum, transformerGradParameters
     end

@@ -27,7 +27,7 @@ function M.loadPalettes(opt, model, imageDir)
     local imageList = util.getFileListRecursive(imageDir)
     local result = {}
     for _, imageFilename in ipairs(imageList) do
-        local saveFilename = opt.styleCacheDir .. util.filenameFromPath(imageFilename):gsub('.jpg', '_') .. opt.activeStyleLayer .. '.dat'
+        local saveFilename = opt.styleCacheDir .. util.filenameFromPath(imageFilename):gsub('.jpg', '_') .. opt.activeStyleLayerName .. '.dat'
         local entry = {
             image = image.load(imageFilename, 3, 'float'),
             palette = torch.load(saveFilename)
@@ -77,7 +77,7 @@ function M.sampleBatch(paletteLoader)
     local negatives = paletteLoader.negatives
     local donkeys = paletteLoader.donkeys
 
-    local layerInfo = opt.styleLayers[opt.activeStyleLayer]
+    local layerInfo = opt.styleLayers[opt.activeStyleLayerIndex]
     local palettes = torch.FloatTensor(opt.paletteBatchSize, layerInfo.channels, opt.paletteDimension, opt.paletteDimension)
     local targetCategories = torch.IntTensor(opt.paletteBatchSize, 1, 1)
     

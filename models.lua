@@ -65,21 +65,26 @@ local function createVGG(opt)
     for i = 1, opt.maxVGGDepth do
         local layer = vggIn:get(i)
         local name = layer.name
+        
+        if contentLayer == nil then
+            vggContentOut:add(layer)
+        end
+        
         --print('layer ' .. i .. ': ' .. name)
         local layerType = torch.type(layer)
         if layer.name == opt.contentLayer then
             print('adding content layer ' .. layer.name)
             contentLayer = layer
         end
-        if opt.styleLayers[layer.name] then
-            print('adding style layer ' .. layer.name)
-            styleLayers[layer.name] = layer
+        for i = 1, #opt.styleLayers do
+            if opt.styleLayers[i].name == layer.name then
+                print('adding style layer ' .. layer.name)
+                styleLayers[layer.name] = layer
+            end
         end
+        
         table.insert(vggLayers, layer)
         vggOut:add(layer)
-        if contentLayer == nil then
-            vggContentOut:add(layer)
-        end
     end
     
     vggIn = nil
@@ -89,8 +94,8 @@ end
 
 local function addPaletteConv(network,iChannels,oChannels,sizeX,sizeY)
     network:add(cudnn.SpatialConvolution(iChannels,oChannels,sizeX,sizeY,1,1,0,0))
-    network:add(cudnn.SpatialBatchNormalization(oChannels,1e-3))
-    network:add(cudnn.ReLU(true))
+    --network:add(cudnn.SpatialBatchNormalization(oChannels,1e-3))
+    network:add(nn.LeakyReLU(true))
 end
 
 local function createPaletteChecker256(opt)
@@ -178,13 +183,13 @@ local function createStyleNet(opt, subnets, vggLayers)
     for i, layer in ipairs(vggLayers) do
         vggStep = layer(vggStep):annotate({name = 'vggLayer' .. i .. '_' .. layer.name})
         
-        if layer.name == opt.styleLayersList[1] then
+        if layer.name == opt.styleLayers[1].name then
             print('adding palette1 loss')
             local predictedCategories1 = subnets.finalPaletteCheckers[1](vggStep)
             palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, paletteCategories1}):annotate{name = 'palette1Loss'}
         end
         
-        if layer.name == opt.styleLayersList[2] then
+        if layer.name == opt.styleLayers[2].name then
             print('adding palette2 loss')
             local predictedCategories2 = subnets.finalPaletteCheckers[2](vggStep)
             palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, paletteCategories2}):annotate{name = 'palette2Loss'}
@@ -222,9 +227,9 @@ local function createModel(opt)
         paletteChecker512 = createPaletteChecker512(opt),
         transformer = createTransformer(opt)
     }
-    if opt.styleLayers[opt.activeStyleLayer].channels == 256 then
+    if opt.styleLayers[opt.activeStyleLayerIndex].channels == 256 then
         subnets.activePaletteChecker = subnets.paletteChecker256
-    elseif opt.styleLayers[opt.activeStyleLayer].channels == 512 then
+    elseif opt.styleLayers[opt.activeStyleLayerIndex].channels == 512 then
         subnets.activePaletteChecker = subnets.paletteChecker512
     else
         assert(false, 'palette checker network not defined')
@@ -238,7 +243,7 @@ local function createModel(opt)
         subnets.finalPaletteCheckers = {}
         r.paletteCheckers = {}
         for i = 1, 2 do
-            local filename = 'savedModels/paletteChecker_' .. opt.styleLayersList[i] .. '.t7'
+            local filename = 'savedModels/paletteChecker_' .. opt.styleLayers[i].name .. '.t7'
             subnets.finalPaletteCheckers[i] = torch.load(filename)
             r.paletteCheckers[i] = subnets.finalPaletteCheckers[i]
             print('loaded ' .. filename)
