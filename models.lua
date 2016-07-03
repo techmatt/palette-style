@@ -148,7 +148,7 @@ end
 local function createTransformer(opt)
     local transformer = nn.Sequential()
 
-    addConvElement(transformer, 3, 32, 7, 1, 1) -- n
+    addConvElement(transformer, 3, 32, 7, 1, 3) -- n
     addConvElement(transformer, 32, 64, 3, 2, 1) -- n / 2
     addConvElement(transformer, 64, 128, 3, 2, 1) -- n / 4
     
@@ -236,9 +236,11 @@ local function createModel(opt)
     -- Create composite nets
     if opt.trainTransformer then
         subnets.finalPaletteCheckers = {}
+        r.paletteCheckers = {}
         for i = 1, 2 do
             local filename = 'savedModels/paletteChecker_' .. opt.styleLayersList[i] .. '.t7'
             subnets.finalPaletteCheckers[i] = torch.load(filename)
+            r.paletteCheckers[i] = subnets.finalPaletteCheckers[i]
             print('loaded ' .. filename)
         end
         r.styleNet = createStyleNet(opt, subnets, r.vggLayers)

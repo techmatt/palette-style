@@ -30,7 +30,7 @@ function M.parse(arg)
                                 relu3_2={channels=256},
                                 relu4_1={channels=512},
                                 },'TODO')
-    cmd:option('-activeStyleLayer', 'relu4_1', 'The name of the style layer currently being trained')
+    cmd:option('-activeStyleLayer', 'relu3_2', 'The name of the style layer currently being trained')
     cmd:option('-negativePaletteRate', 0.75, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
@@ -38,14 +38,13 @@ function M.parse(arg)
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     
-    
-    cmd:option('-trainTransformer', false, 'TODO')
+    cmd:option('-trainTransformer', true, 'TODO')
     
     cmd:option('-styleCacheDir', 'styleCache/', 'TODO')
     
     ------------- Training options --------------------
     cmd:option('-epochCount',      100,    'Number of total epochs to run')
-    cmd:option('-epochSize',       5000, 'Number of batches per epoch')
+    cmd:option('-epochSize',       1000, 'Number of batches per epoch')
     cmd:option('-epochNumber',     1,     'Manual epoch number (useful on restarts)')
     
     ------------- Data options ------------------------

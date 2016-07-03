@@ -56,58 +56,29 @@ end
 
 function M.sampleBatch(imageLoader)
     local opt = imageLoader.opt
-    local imageLists = imageLoader.imageLists
+    local imageList = imageLoader.imageList
     local donkeys = imageLoader.donkeys
 
-    local grayscaleInputs = torch.FloatTensor(opt.batchSize, 1, opt.cropSize, opt.cropSize)
-    local RGBTargets = torch.FloatTensor(opt.batchSize, 3, opt.halfCropSize, opt.halfCropSize)
-    local thumbnails = torch.FloatTensor(opt.batchSize, 3, opt.thumbnailSize, opt.thumbnailSize)
-    local classLabels = torch.IntTensor(opt.batchSize)
+    local RGBImagesCaffe = torch.FloatTensor(opt.transformerBatchSize, 3, opt.cropSize, opt.cropSize)
     
-    for b = 1, opt.batchSize do
-        local imageCategory = math.random( #imageLists )
-        classLabels[b] = imageCategory
-        local list = imageLists[imageCategory]
-        local imageFilename = list[ math.random( #list ) ]
+    for b = 1, opt.transformerBatchSize do
+        local imageFilename = imageList[ math.random( #imageList ) ]
         donkeys:addjob(
             function()
-                local sourceImg = loadAndCropImage(imageFilename, opt)
+                local imgRGB = loadAndCropImage(imageFilename, opt)
 
-                -- Grayscale image
-                local grayscale = image.rgb2y(sourceImg)
-                -- y is in the range 0 - 1
+                imgCaffe = torchUtil.caffePreprocess(imgRGB:clone())
                 
-                --[[local imgGray = torch.FloatTensor(1, opt.cropSize, opt.cropSize):zero()
-                grayscale:add(0.299, sourceImg:select(1, 1))
-                grayscale:add(0.587, sourceImg:select(1, 2))
-                grayscale:add(0.114, sourceImg:select(1, 3))]]
-                grayscale:add(-0.5)
-                
-                local downscaleImg = image.scale(sourceImg, opt.halfCropSize, opt.halfCropSize)
-                local RGBColor = torchUtil.caffePreprocess(downscaleImg:clone())
-                
-                local thumbnailImg = image.scale(sourceImg, opt.thumbnailSize, opt.thumbnailSize)
-                local thumbnail = image.rgb2lab(thumbnailImg)
-                
-                --[[local ABColor = image.rgb2lab(downscaleImg)
-                ABColor = ABColor[{{2,3},{},{}}]:clone()
-                ABColor:mul(1.0 / 100.0)]]
-                
-                return grayscale, RGBColor, thumbnail
+                return imgCaffe
             end,
-            function(grayscale, RGBColor, thumbnail)
-                grayscaleInputs[b] = grayscale
-                RGBTargets[b] = RGBColor
-                thumbnails[b] = thumbnail
+            function(imgCaffe)
+                RGBImagesCaffe[b] = imgCaffe
             end)
     end
     donkeys:synchronize()
     
     local batch = {}
-    batch.grayscaleInputs = grayscaleInputs
-    batch.RGBTargets = RGBTargets
-    batch.thumbnails = thumbnails
-    batch.classLabels = classLabels
+    batch.RGBImagesCaffe = RGBImagesCaffe
     return batch
 end
 

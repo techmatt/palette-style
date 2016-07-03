@@ -13,13 +13,26 @@ local util = require('util')
 local models = require('models')
 local torchUtil = require('torchUtil')
 local paletteLoader = require('paletteLoader')
-local train = require('trainPaletteChecker')
+local imageLoader = require('imageLoader')
+
+local train
+if opt.trainTransformer then
+    train = require('trainTransformer')
+else
+    train = require('trainPaletteChecker')
+end
 
 local model = models.createModel(opt)
 --paletteLoader.computePalettes(opt, model, 'images/positives/')
 --paletteLoader.computePalettes(opt, model, 'images/negatives/')
 
-local pLoader = paletteLoader.makePaletteLoader(opt, model)
+local pLoader, iLoader
+if opt.trainTransformer then
+    iLoader = imageLoader.makeImageLoader(opt)
+else
+    pLoader = paletteLoader.makePaletteLoader(opt, model)
+end
+
 
 --do return end
 
@@ -37,6 +50,10 @@ for file in lfs.dir('.') do
 	end
 end
 
-for i=1,opt.epochCount do
-   train(model, pLoader, opt, i)
+for i = 1, opt.epochCount do
+    if opt.trainTransformer then
+        train(model, iLoader, opt, i)
+    else
+        train(model, pLoader, opt, i)
+    end
 end
