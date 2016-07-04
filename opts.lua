@@ -33,7 +33,7 @@ function M.parse(arg)
     cmd:option('-negativePaletteRate', 0.75, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
-    cmd:option('-contentWeight', 0.001, 'TODO')
+    cmd:option('-contentWeight', 0.000000001, 'TODO')
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     
@@ -43,7 +43,7 @@ function M.parse(arg)
     
     ------------- Training options --------------------
     cmd:option('-epochCount',      100,    'Number of total epochs to run')
-    cmd:option('-epochSize',       1000, 'Number of batches per epoch')
+    cmd:option('-epochSize',       2000, 'Number of batches per epoch')
     cmd:option('-epochNumber',     1,     'Manual epoch number (useful on restarts)')
     
     ------------- Data options ------------------------

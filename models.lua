@@ -180,18 +180,19 @@ local function createStyleNet(opt, subnets, vggLayers)
     
     local vggStep = transformerOutput
     local palette1Loss, palette2Loss, contentLoss
+    local predictedCategories1, predictedCategories2
     for i, layer in ipairs(vggLayers) do
         vggStep = layer(vggStep):annotate({name = 'vggLayer' .. i .. '_' .. layer.name})
         
         if layer.name == opt.styleLayers[1].name then
             print('adding palette1 loss')
-            local predictedCategories1 = subnets.finalPaletteCheckers[1](vggStep)
+            predictedCategories1 = subnets.finalPaletteCheckers[1](vggStep)
             palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, paletteCategories1}):annotate{name = 'palette1Loss'}
         end
         
         if layer.name == opt.styleLayers[2].name then
             print('adding palette2 loss')
-            local predictedCategories2 = subnets.finalPaletteCheckers[2](vggStep)
+            predictedCategories2 = subnets.finalPaletteCheckers[2](vggStep)
             palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, paletteCategories2}):annotate{name = 'palette2Loss'}
         end
         
@@ -212,7 +213,7 @@ local function createStyleNet(opt, subnets, vggLayers)
     cudnn.convert(styleNet, cudnn)
     styleNet = styleNet:cuda()
     graph.dot(styleNet.fg, 'styleNet', 'styleNet')
-    return styleNet, transformerOutput
+    return styleNet, transformerOutput, predictedCategories1, predictedCategories2
 end
 
 local function createModel(opt)
@@ -248,7 +249,7 @@ local function createModel(opt)
             r.paletteCheckers[i] = subnets.finalPaletteCheckers[i]
             print('loaded ' .. filename)
         end
-        r.styleNet, r.transformerOutput = createStyleNet(opt, subnets, r.vggLayers)
+        r.styleNet, r.transformerOutput, r.predictedCategories1, r.predictedCategories2 = createStyleNet(opt, subnets, r.vggLayers)
     else
         r.paletteCheckerNet = createPaletteCheckerNet(opt, subnets)
     end

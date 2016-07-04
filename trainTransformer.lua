@@ -46,6 +46,12 @@ local targetCategories2 = torch.CudaTensor()
 
 local transformerParameters, transformerGradParameters = nil, nil
 
+local function makeCheckerImage(unnormProbs)
+    local probs = nn.SpatialSoftMax():forward(unnormProbs:float())
+    local positiveProbs = probs:narrow(1, 2, 1)
+    return positiveProbs[1]
+end
+
 local function trainTransformer(model, loader, opt, epoch)
     
     if transformerParameters == nil then transformerParameters, transformerGradParameters = model.styleNet:getParameters() end
@@ -93,14 +99,19 @@ local function trainTransformer(model, loader, opt, epoch)
             end
             
             if superBatch == 1 and totalBatchCount % 100 == 0 then
-                local inClone = RGBImagesCaffe[1]:clone()
-                inClone = torchUtil.caffeDeprocess(inClone)
+                local inputImage = RGBImagesCaffe[1]:clone()
+                inputImage = torchUtil.caffeDeprocess(inputImage)
                 
-                local outClone = model.transformerOutput.data.module.output[1]:clone()
-                outClone = torchUtil.caffeDeprocess(outClone)
+                local outTransformer = model.transformerOutput.data.module.output[1]:clone()
+                outTransformer = torchUtil.caffeDeprocess(outTransformer)
                 
-                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_in.jpg', inClone)
-                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_out.jpg', outClone)
+                local outPalette1 = makeCheckerImage(model.predictedCategories1.data.module.output[1])
+                local outPalette2 = makeCheckerImage(model.predictedCategories2.data.module.output[1])
+                
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_in.jpg', inputImage)
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_out.jpg', outTransformer)
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_palette1.jpg', outPalette1)
+                image.save(opt.outDir .. 'samples/sample' .. totalBatchCount .. '_palette2.jpg', outPalette2)
             end
         end
         
