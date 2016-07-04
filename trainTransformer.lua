@@ -2,7 +2,7 @@
 local imageLoader = require('imageLoader')
 local torchUtil = require('torchUtil')
 
-local debugBatchIndices = {[200]=true, [6000]=true, [20000]=true}
+local debugBatchIndices = {[6000]=true, [20000]=true}
 -- local debugBatchIndices = {[5]=true}
 --local debugBatchIndices = {}
 
@@ -144,8 +144,8 @@ local function train(model, loader, opt, epoch)
 
     -- clear the intermediate states in the model before saving to disk
     -- this saves lots of disk space
-    --model.activePaletteChecker:clearState()
-    --torch.save(opt.outDir .. 'models/activePaletteChecker' .. epoch .. '.t7', model.activePaletteChecker)
+    model.transformer:clearState()
+    torch.save(opt.outDir .. 'models/transformer' .. epoch .. '.t7', model.transformer)
     
     print('==> doing epoch on training data:')
     print("==> online epoch # " .. epoch)

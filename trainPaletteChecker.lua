@@ -15,9 +15,9 @@ local function paramsForEpoch(epoch)
     local regimes = {
         -- start, end,    LR,   WD,
         {  1,     1,   1e-4,   0 },
-        {  2,     2,   1e-4,   0 },
-        {  3,     5,   1e-4,   0 },
-        {  6,     10,   1e-4,   0 },
+        {  2,     2,   1e-5,   0 },
+        {  3,     5,   1e-5,   0 },
+        {  6,     10,   1e-5,   0 },
         { 11,     20,   1e-5,   0 },
         { 21,     30,   1e-6,   0 },
         { 31,     40,   1e-7,   0 },
@@ -148,8 +148,8 @@ local function train(model, loader, opt, epoch)
     -- clear the intermediate states in the model before saving to disk
     -- this saves lots of disk space
     model.activePaletteChecker:clearState()
-    torch.save(opt.outDir .. 'models/activePaletteChecker' .. epoch .. '.t7', model.activePaletteChecker)
-    
+    torch.save(opt.outDir .. 'models/paletteChecker-' .. opt.styleLayers[opt.activeStyleLayerIndex].name .. '-iter' .. opt.negativeExamplesIteration .. '-' .. epoch .. '.t7', model.activePaletteChecker)
+        
     print('==> doing epoch on training data:')
     print("==> online epoch # " .. epoch)
 

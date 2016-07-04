@@ -14,27 +14,7 @@ local models = require('models')
 local torchUtil = require('torchUtil')
 local paletteLoader = require('paletteLoader')
 local imageLoader = require('imageLoader')
-
-local train
-if opt.trainTransformer then
-    train = require('trainTransformer')
-else
-    train = require('trainPaletteChecker')
-end
-
-local model = models.createModel(opt)
---paletteLoader.computePalettes(opt, model, 'images/positives/')
---paletteLoader.computePalettes(opt, model, 'images/negatives/')
-
-local pLoader, iLoader
-if opt.trainTransformer then
-    iLoader = imageLoader.makeImageLoader(opt)
-else
-    pLoader = paletteLoader.makePaletteLoader(opt, model)
-end
-
-
---do return end
+local paletteUtil = require('paletteUtil')
 
 -- Create unique directory for outputs (based on timestamp)
 opt.outDir = string.format('%s_%u/', opt.outBaseDir, os.time())
@@ -50,10 +30,29 @@ for file in lfs.dir('.') do
 	end
 end
 
-for i = 1, opt.epochCount do
-    if opt.trainTransformer then
+if opt.makeNegativeExamples then
+    local iLoader = imageLoader.makeImageLoader(opt)
+    paletteUtil.generateNegativeImages('savedModels/transformer_iter' .. opt.negativeExamplesIteration .. '.t7', iLoader, opt.negativeExamplesIteration, opt.negativeSamples)
+end
+
+if opt.trainTransformer then
+    local train = require('trainTransformer')
+    local model = models.createModel(opt)
+    local iLoader = imageLoader.makeImageLoader(opt)
+    
+    for i = 1, opt.epochCount do
         train(model, iLoader, opt, i)
-    else
+    end
+end
+
+if opt.trainPaletteChecker then
+    local train = require('trainPaletteChecker')
+    local model = models.createModel(opt)
+    paletteLoader.computePalettes(opt, model, 'images/positives/')
+    paletteLoader.computePalettes(opt, model, 'images/negatives/')
+    local pLoader = paletteLoader.makePaletteLoader(opt, model)
+    
+    for i = 1, opt.epochCount do
         train(model, pLoader, opt, i)
     end
 end

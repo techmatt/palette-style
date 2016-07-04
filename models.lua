@@ -98,6 +98,23 @@ local function addPaletteConv(network,iChannels,oChannels,sizeX,sizeY)
     network:add(nn.LeakyReLU(true))
 end
 
+local function createPaletteChecker128(opt)
+    local network = nn.Sequential()
+
+    addPaletteConv(network, 128, 256, 1, 1) -- 128x5x5
+    addPaletteConv(network, 256, 256, 3, 1) -- 128x3x5
+    addPaletteConv(network, 256, 256, 1, 3) -- 128x3x3
+    addPaletteConv(network, 256, 256, 1, 1) -- 128x3x3
+    addPaletteConv(network, 256, 256, 3, 1) -- 128x1x3
+    addPaletteConv(network, 256, 256, 1, 3) -- 128x1x1
+    addPaletteConv(network, 256, 256, 1, 1) -- 128x1x1
+    network:add(cudnn.SpatialConvolution(256,2,1,1,1,1,0,0))
+    
+    --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
+    
+    return network
+end
+
 local function createPaletteChecker256(opt)
     local network = nn.Sequential()
 
@@ -118,13 +135,13 @@ end
 local function createPaletteChecker512(opt)
     local network = nn.Sequential()
 
-    addPaletteConv(network, 512, 512, 1, 1) -- 256x5x5
-    addPaletteConv(network, 512, 512, 3, 1) -- 256x3x5
-    addPaletteConv(network, 512, 512, 1, 3) -- 256x3x3
-    addPaletteConv(network, 512, 512, 1, 1) -- 256x3x3
-    addPaletteConv(network, 512, 512, 3, 1) -- 256x1x3
-    addPaletteConv(network, 512, 512, 1, 3) -- 256x1x1
-    addPaletteConv(network, 512, 512, 1, 1) -- 256x1x1
+    addPaletteConv(network, 512, 512, 1, 1) -- 512x5x5
+    addPaletteConv(network, 512, 512, 3, 1) -- 512x3x5
+    addPaletteConv(network, 512, 512, 1, 3) -- 512x3x3
+    addPaletteConv(network, 512, 512, 1, 1) -- 512x3x3
+    addPaletteConv(network, 512, 512, 3, 1) -- 512x1x3
+    addPaletteConv(network, 512, 512, 1, 3) -- 512x1x1
+    addPaletteConv(network, 512, 512, 1, 1) -- 512x1x1
     network:add(cudnn.SpatialConvolution(512,2,1,1,1,1,0,0))
     return network
 end
@@ -224,11 +241,14 @@ local function createModel(opt)
 
     -- Create individual sub-networks
     local subnets = {
+        paletteChecker128 = createPaletteChecker128(opt),
         paletteChecker256 = createPaletteChecker256(opt),
         paletteChecker512 = createPaletteChecker512(opt),
         transformer = createTransformer(opt)
     }
-    if opt.styleLayers[opt.activeStyleLayerIndex].channels == 256 then
+    if opt.styleLayers[opt.activeStyleLayerIndex].channels == 128 then
+        subnets.activePaletteChecker = subnets.paletteChecker128
+    elseif opt.styleLayers[opt.activeStyleLayerIndex].channels == 256 then
         subnets.activePaletteChecker = subnets.paletteChecker256
     elseif opt.styleLayers[opt.activeStyleLayerIndex].channels == 512 then
         subnets.activePaletteChecker = subnets.paletteChecker512
@@ -236,6 +256,7 @@ local function createModel(opt)
         assert(false, 'palette checker network not defined')
     end
     
+    r.transformer = subnets.transformer
     r.activePaletteChecker = subnets.activePaletteChecker
     r.vggNet, r.vggContentNet, r.vggLayers, r.contentLayer, r.styleLayers = createVGG(opt)
     
