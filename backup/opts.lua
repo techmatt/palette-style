@@ -38,6 +38,11 @@ function M.parse(arg)
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     
+    cmd:option('-trainTransformer', false, 'TODO')
+    cmd:option('-makeNegativeExamples', false, 'TODO')
+    cmd:option('-trainPaletteChecker', false, 'TODO')
+    cmd:option('-trainJoint', true, 'TODO')
+    
     cmd:option('-negativeExamplesIteration', 1, 'TODO')
     cmd:option('-negativeSamples', 200, 'TODO')
     

@@ -101,14 +101,14 @@ end
 local function createPaletteChecker128(opt)
     local network = nn.Sequential()
 
-    addPaletteConv(network, 128, 128, 1, 1) -- 128x5x5
-    addPaletteConv(network, 128, 128, 3, 1) -- 128x3x5
-    addPaletteConv(network, 128, 128, 1, 3) -- 128x3x3
-    addPaletteConv(network, 128, 128, 1, 1) -- 128x3x3
-    addPaletteConv(network, 128, 128, 3, 1) -- 128x1x3
-    addPaletteConv(network, 128, 128, 1, 3) -- 128x1x1
-    addPaletteConv(network, 128, 128, 1, 1) -- 128x1x1
-    network:add(cudnn.SpatialConvolution(128,2,1,1,1,1,0,0))
+    addPaletteConv(network, 128, 256, 1, 1) -- 128x5x5
+    addPaletteConv(network, 256, 256, 3, 1) -- 128x3x5
+    addPaletteConv(network, 256, 256, 1, 3) -- 128x3x3
+    addPaletteConv(network, 256, 256, 1, 1) -- 128x3x3
+    addPaletteConv(network, 256, 256, 3, 1) -- 128x1x3
+    addPaletteConv(network, 256, 256, 1, 3) -- 128x1x1
+    addPaletteConv(network, 256, 256, 1, 1) -- 128x1x1
+    network:add(cudnn.SpatialConvolution(256,2,1,1,1,1,0,0))
     
     --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
     
@@ -146,16 +146,25 @@ local function createPaletteChecker512(opt)
     return network
 end
 
-local function createPaletteChecker(opt, channelCount)
-    if channelCount == 128 then
-        return createPaletteChecker128(opt)
-    elseif channelCount == 256 then
-        return createPaletteChecker256(opt)
-    elseif channelCount == 512 then
-        return createPaletteChecker512(opt)
-    else
-        assert(false, 'palette checker network not defined')
-    end
+local function createPaletteCheckerNet(opt, subnets)
+    -- Input nodes
+    local palettes = nn.Identity()():annotate({name = 'palettes'})
+    local targetCategories = nn.Identity()():annotate({name = 'targetCategories'})
+
+    -- Intermediates
+    local classificationOutput = subnets.activePaletteChecker(palettes):annotate({name = 'classificationOutput'})
+    
+    print('adding class loss')
+    --local classLoss = nn.MSELoss()({classificationOutput, targetCategories}):annotate{name = 'classLoss'}
+    local classLoss = cudnn.SpatialCrossEntropyCriterion()({classificationOutput, targetCategories}):annotate{name = 'classLoss'}
+    
+    -- Full training network including all loss functions
+    local paletteCheckerNet = nn.gModule({palettes, targetCategories}, {classLoss})
+
+    cudnn.convert(paletteCheckerNet, cudnn)
+    paletteCheckerNet = paletteCheckerNet:cuda()
+    graph.dot(paletteCheckerNet.fg, 'paletteChecker', 'paletteChecker')
+    return paletteCheckerNet, classificationOutput
 end
 
 local function createTransformer(opt)
@@ -176,20 +185,17 @@ local function createTransformer(opt)
     return transformer
 end
 
-local function createStyleTransformNet(opt, subnets, vggLayers)
+local function createStyleNet(opt, subnets, vggLayers)
     -- Input nodes
     local sourceImage = nn.Identity()():annotate({name = 'sourceImage'})
     local sourceContent = nn.Identity()():annotate({name = 'sourceContent'})
     local paletteCategories1 = nn.Identity()():annotate({name = 'paletteCategories1'}) 
     local paletteCategories2 = nn.Identity()():annotate({name = 'paletteCategories2'}) 
-    
-    local tranformed = nn.Identity()():annotate({name = 'sourceContent'})
 
     -- Intermediates
     local transformerOutput = subnets.transformer(sourceImage):annotate({name = 'transformerOutput'})
     
     local vggStep = transformerOutput
-    local palette1Values, palette2Values
     local palette1Loss, palette2Loss, contentLoss
     local predictedCategories1, predictedCategories2
     for i, layer in ipairs(vggLayers) do
@@ -197,15 +203,15 @@ local function createStyleTransformNet(opt, subnets, vggLayers)
         
         if layer.name == opt.styleLayers[1].name then
             print('adding palette1 loss')
-            palette1Values = vggStep
-            predictedCategories1 = subnets.paletteCheckers[1](vggStep)
+            paletteValues1 = vggStep
+            predictedCategories1 = subnets.finalPaletteCheckers[1](vggStep)
             palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, paletteCategories1}):annotate{name = 'palette1Loss'}
         end
         
         if layer.name == opt.styleLayers[2].name then
             print('adding palette2 loss')
-            palette2Values = vggStep
-            predictedCategories2 = subnets.paletteCheckers[2](vggStep)
+            paletteValues2 = vggStep
+            predictedCategories2 = subnets.finalPaletteCheckers[2](vggStep)
             palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, paletteCategories2}):annotate{name = 'palette2Loss'}
         end
         
@@ -220,22 +226,22 @@ local function createStyleTransformNet(opt, subnets, vggLayers)
     local palette2LossMul = nn.MulConstant(opt.palette2Weight, true)(palette2Loss)
     
     -- Full training network including all loss functions
-    local styleTransformNet = nn.gModule({sourceImage, sourceContent, paletteCategories1, paletteCategories2},
-                                         {contentLossMul, palette1LossMul, palette2LossMul})
+    local styleNet = nn.gModule({sourceImage, sourceContent, paletteCategories1, paletteCategories2},
+                                {contentLossMul, palette1LossMul, palette2LossMul})
 
-    cudnn.convert(styleTransformNet, cudnn)
-    styleTransformNet = styleTransformNet:cuda()
-    graph.dot(styleTransformNet.fg, 'styleTransformNet', 'styleTransformNet')
-    return styleTransformNet, transformerOutput, predictedCategories1, predictedCategories2, palette1Values, palette2Values
+    cudnn.convert(styleNet, cudnn)
+    styleNet = styleNet:cuda()
+    graph.dot(styleNet.fg, 'styleNet', 'styleNet')
+    return styleNet, transformerOutput, predictedCategories1, predictedCategories2, paletteValues1, paletteValues2
 end
 
 local function createPaletteUpdateNet(opt, subnets, vggLayers)
     -- Input nodes
-    local tranformedImages = nn.Identity()():annotate({name = 'tranformedImages'})
-    local paletteCategories1 = nn.Identity()():annotate({name = 'paletteCategories1'}) 
-    local paletteCategories2 = nn.Identity()():annotate({name = 'paletteCategories2'}) 
+    local sourceImages = nn.Identity()():annotate({name = 'sourceImages'})
+    local targetCategories1 = nn.Identity()():annotate({name = 'targetCategories1'}) 
+    local targetCategories2 = nn.Identity()():annotate({name = 'targetCategories2'}) 
 
-    local vggStep = tranformedImages
+    local vggStep = transformerOutput
     local palette1Loss, palette2Loss
     local predictedCategories1, predictedCategories2
     for i, layer in ipairs(vggLayers) do
@@ -243,14 +249,14 @@ local function createPaletteUpdateNet(opt, subnets, vggLayers)
         
         if layer.name == opt.styleLayers[1].name then
             print('adding palette1 loss')
-            predictedCategories1 = subnets.paletteCheckers[1](vggStep)
-            palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, paletteCategories1}):annotate{name = 'palette1Loss'}
+            predictedCategories1 = subnets.finalPaletteCheckers[1](vggStep)
+            palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, targetCategories1}):annotate{name = 'palette1Loss'}
         end
         
         if layer.name == opt.styleLayers[2].name then
             print('adding palette2 loss')
-            predictedCategories2 = subnets.paletteCheckers[2](vggStep)
-            palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, paletteCategories2}):annotate{name = 'palette2Loss'}
+            predictedCategories2 = subnets.finalPaletteCheckers[2](vggStep)
+            palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, targetCategories2}):annotate{name = 'palette2Loss'}
         end
     end
     
@@ -258,13 +264,13 @@ local function createPaletteUpdateNet(opt, subnets, vggLayers)
     local palette2LossMul = nn.MulConstant(opt.palette2Weight, true)(palette2Loss)
     
     -- Full training network including all loss functions
-    local paletteUpdateNet = nn.gModule({tranformedImages, paletteCategories1, paletteCategories2},
-                                         {palette1LossMul, palette2LossMul})
-                                         
+    local paletteUpdateNet = nn.gModule({sourceImages, targetCategories1, targetCategories2},
+                                        {palette1LossMul, palette2LossMul})
+
     cudnn.convert(paletteUpdateNet, cudnn)
     paletteUpdateNet = paletteUpdateNet:cuda()
     graph.dot(paletteUpdateNet.fg, 'paletteUpdateNet', 'paletteUpdateNet')
-    return paletteUpdateNet
+    return paletteUpdateNet, predictedCategories1, predictedCategories2
 end
 
 local function createModel(opt)
@@ -273,16 +279,43 @@ local function createModel(opt)
     -- Return table
     local r = {}
 
-    r.transformer =  createTransformer(opt)
+    -- Create individual sub-networks
+    local subnets = {
+        paletteChecker128 = createPaletteChecker128(opt),
+        paletteChecker256 = createPaletteChecker256(opt),
+        paletteChecker512 = createPaletteChecker512(opt),
+        transformer = createTransformer(opt)
+    }
+    if opt.styleLayers[opt.activeStyleLayerIndex].channels == 128 then
+        subnets.activePaletteChecker = subnets.paletteChecker128
+    elseif opt.styleLayers[opt.activeStyleLayerIndex].channels == 256 then
+        subnets.activePaletteChecker = subnets.paletteChecker256
+    elseif opt.styleLayers[opt.activeStyleLayerIndex].channels == 512 then
+        subnets.activePaletteChecker = subnets.paletteChecker512
+    else
+        assert(false, 'palette checker network not defined')
+    end
+    
+    r.transformer = subnets.transformer
+    r.activePaletteChecker = subnets.activePaletteChecker
     r.vggNet, r.vggContentNet, r.vggLayers, r.contentLayer, r.styleLayers = createVGG(opt)
     
     -- Create composite nets
-    r.paletteCheckers = {}
-    for i = 1, 2 do
-        r.paletteCheckers[i] = createPaletteChecker(opt, opt.styleLayers[i].channels)
+    if opt.trainTransformer then
+        subnets.finalPaletteCheckers = {}
+        r.paletteCheckers = {}
+        for i = 1, 2 do
+            local filename = 'savedModels/paletteChecker-' .. opt.styleLayers[i].name .. '-iter' .. opt.negativeExamplesIteration .. '.t7'
+            subnets.finalPaletteCheckers[i] = torch.load(filename)
+            r.paletteCheckers[i] = subnets.finalPaletteCheckers[i]
+            print('loaded ' .. filename)
+        end
+        r.styleNet, r.transformerOutput, r.predictedCategories1, r.predictedCategories2, r.paletteValues1, r.paletteValues2 = createStyleNet(opt, subnets, r.vggLayers)
+    elseif opt.trainJoint then
+        
+    else
+        r.paletteCheckerNet = createPaletteCheckerNet(opt, subnets)
     end
-    r.styleTransformNet, r.transformerOutput, r.predictedCategories1, r.predictedCategories2, r.paletteValues1, r.paletteValues2 = createStyleTransformNet(opt, r, r.vggLayers)
-    r.paletteUpdateNet = createPaletteUpdateNet(opt, r, r.vggLayers)
     
     collectgarbage()
     
