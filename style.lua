@@ -30,10 +30,10 @@ for file in lfs.dir('.') do
 	end
 end
 
---local train = require('trainTransformer')
+local train = require('trainJoint')
 local model = models.createModel(opt)
 local iLoader = imageLoader.makeImageLoader(opt)
 
---for i = 1, opt.epochCount do
---    train(model, iLoader, opt, i)
---end
+for i = 1, opt.epochCount do
+    train(model, iLoader, opt, i)
+end

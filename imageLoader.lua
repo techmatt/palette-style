@@ -83,21 +83,16 @@ function M.sampleBatchRandom(imageLoader)
     return batch
 end
 
-function M.sampleBatchHybrid(imageLoader)
+function M.sampleBatchPositive(imageLoader, batchSize)
     local opt = imageLoader.opt
-    local imageList = imageLoader.imageList
     local positiveList = imageLoader.positiveList
     local donkeys = imageLoader.donkeys
 
-    local RGBImagesCaffe = torch.FloatTensor(opt.transformerBatchSize, 3, opt.cropSize, opt.cropSize)
+    local RGBImagesCaffe = torch.FloatTensor(batchSize, 3, opt.cropSize, opt.cropSize)
     
-    for b = 1, opt.transformerBatchSize do
+    for b = 1, batchSize do
         local imageFilename
-        if b <= opt.transformerBatchSize / 2 then
-            imageFilename = imageList[ math.random( #imageList ) ]
-        else
-            imageFilename = positiveList[ math.random( #positiveList ) ]
-        end
+        imageFilename = positiveList[ math.random( #positiveList ) ]
         donkeys:addjob(
             function()
                 local imgRGB = loadAndCropImage(imageFilename, opt)
