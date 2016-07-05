@@ -15,7 +15,7 @@ function M.parse(arg)
     cmd:option('-paletteBatchSize', 256, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-paletteSuperBatches', 1, 'TODO')
     
-    cmd:option('-transformerBatchSize', 4, 'mini-batch size (1 = pure stochastic)')
+    cmd:option('-transformerBatchSize', 8, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-transformerSuperBatches', 1, 'TODO')
     
     cmd:option('-imageSize', 256, 'Smallest side of the resized image')
@@ -34,7 +34,7 @@ function M.parse(arg)
     cmd:option('-negativePaletteRate', 0.5, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
     
-    cmd:option('-contentWeight', 0.00000001, 'TODO')
+    cmd:option('-contentWeight', 0.0000001, 'TODO')
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     
