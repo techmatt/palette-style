@@ -168,10 +168,19 @@ local function createTransformer(opt)
     addResidualBlock(transformer, 128, 128, 3, 1, 1) -- n / 4
     addResidualBlock(transformer, 128, 128, 3, 1, 1) -- n / 4
     addResidualBlock(transformer, 128, 128, 3, 1, 1) -- n / 4
+    addResidualBlock(transformer, 128, 128, 3, 1, 1) -- n / 4
+    addResidualBlock(transformer, 128, 128, 3, 1, 1) -- n / 4
     
     addUpConvElement(transformer, 128, 64, 3, 2, 1, 1) -- n / 2
     addUpConvElement(transformer, 64, 32, 3, 2, 1, 1) -- n
     transformer:add(cudnn.SpatialConvolution(32,3,3,3,1,1,1,1))
+    
+    if opt.TVWeight > 0 then
+        print('adding TV loss')
+        local TVLossMod = nn.TVLoss(opt.TVWeight, opt.transformerBatchSize):float()
+        TVLossMod:cuda()
+        transformer:add(TVLossMod)
+    end
 
     return transformer
 end

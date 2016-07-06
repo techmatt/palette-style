@@ -12,9 +12,6 @@ function M.parse(arg)
     cmd:option('-outBaseDir', 'out', 'TODO')
     cmd:option('-imageList', 'data/imageListCOCO.txt', 'TODO')
     
-    cmd:option('-paletteBatchSize', 256, 'mini-batch size (1 = pure stochastic)')
-    cmd:option('-paletteSuperBatches', 1, 'TODO')
-    
     cmd:option('-transformerBatchSize', 8, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-transformerSuperBatches', 1, 'TODO')
     
@@ -28,6 +25,7 @@ function M.parse(arg)
     cmd:option('-contentLayer', 'relu2_2', 'TODO')
     cmd:option('-styleLayers', { [1] = { name = 'relu2_1', channels = 128, finalDim = 108 },
                                  [2] = { name = 'relu3_2', channels = 256, finalDim = 52 }, --maxVGGDepth 14
+                                 --[1] = { name = 'relu2_2', channels = 128, finalDim = 108 },
                                  --[x] = { name = 'relu4_1', channels = 512, finalDim = 24 }, --maxVGGDepth 21
                                  }, 'TODO')
     cmd:option('-activeStyleLayerIndex', 2, 'The index into styleLayers currently being trained')
@@ -37,6 +35,7 @@ function M.parse(arg)
     cmd:option('-contentWeight', 0.0000001, 'TODO')
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
+    cmd:option('-TVWeight', 1e-4, 'TODO')
     
     cmd:option('-negativeExamplesIteration', 1, 'TODO')
     cmd:option('-negativeSamples', 200, 'TODO')
