@@ -7,13 +7,13 @@ local useBatchNorm = true
 local function addConvElement(network,iChannels,oChannels,size,stride,padding)
     network:add(cudnn.SpatialConvolution(iChannels,oChannels,size,size,stride,stride,padding,padding))
     if useBatchNorm then network:add(cudnn.SpatialBatchNormalization(oChannels,1e-3)) end
-    network:add(cudnn.ReLU(true))
+    network:add(nn.LeakyReLU(true))
 end
 
 local function addLinearElement(network,iChannels,oChannels)
     network:add(nn.Linear(iChannels, oChannels))
     if useBatchNorm then network:add(cudnn.BatchNormalization(oChannels, 1e-3)) end
-    network:add(cudnn.ReLU(true))
+    network:add(nn.LeakyReLU(true))
 end
 
 local function addUpConvElement(network,iChannels,oChannels,size,stride,padding,extra)
@@ -21,7 +21,7 @@ local function addUpConvElement(network,iChannels,oChannels,size,stride,padding,
     --network:add(nn.SpatialUpSamplingNearest(stride))
     --network:add(nn.SpatialConvolution(iChannels,oChannels,size,size,1,1,padding,padding))
     if useBatchNorm then network:add(cudnn.SpatialBatchNormalization(oChannels,1e-3)) end
-    network:add(cudnn.ReLU(true))
+    network:add(nn.LeakyReLU(true))
 end
 
 local function addResidualBlock(network,iChannels,oChannels,size,stride,padding)
@@ -32,7 +32,7 @@ local function addResidualBlock(network,iChannels,oChannels,size,stride,padding)
         
     s:add(cudnn.SpatialConvolution(iChannels,oChannels,size,size,stride,stride,padding,padding))
     if useBatchNorm then s:add(cudnn.SpatialBatchNormalization(oChannels,1e-3)) end
-    s:add(cudnn.ReLU(true))
+    s:add(nn.LeakyReLU(true))
     s:add(cudnn.SpatialConvolution(iChannels,oChannels,size,size,stride,stride,padding,padding))
     if useBatchNorm then s:add(cudnn.SpatialBatchNormalization(oChannels,1e-3)) end
     
@@ -46,7 +46,7 @@ local function addResidualBlock(network,iChannels,oChannels,size,stride,padding)
             :add(nn.CAddTable(true))
         network:add(block)
     else
-        s:add(nn.ReLU(true))
+        s:add(nn.LeakyReLU(true))
         network:add(s)
     end
 end
@@ -98,6 +98,34 @@ local function addPaletteConv(network,iChannels,oChannels,sizeX,sizeY)
     network:add(nn.LeakyReLU(true))
 end
 
+--[[local function createPaletteChecker128(opt)
+    local network = nn.Sequential()
+
+    addPaletteConv(network, 128, 128, 3, 3) -- 64x7x7
+    addPaletteConv(network, 128, 128, 3, 3) -- 64x5x5
+    addPaletteConv(network, 128, 128, 3, 3) -- 64x3x3
+    addPaletteConv(network, 128, 128, 3, 3) -- 64x1x1
+    network:add(cudnn.SpatialConvolution(128,2,1,1,1,1,0,0))
+    
+    --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
+    
+    return network
+end
+
+local function createPaletteChecker256(opt)
+    local network = nn.Sequential()
+
+    addPaletteConv(network, 256, 256, 3, 3) -- 64x7x7
+    addPaletteConv(network, 256, 256, 3, 3) -- 64x5x5
+    addPaletteConv(network, 256, 256, 3, 3) -- 64x3x3
+    addPaletteConv(network, 256, 256, 3, 3) -- 64x1x1
+    network:add(cudnn.SpatialConvolution(256,2,1,1,1,1,0,0))
+    
+    --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
+    
+    return network
+end]]
+
 local function createPaletteChecker128(opt)
     local network = nn.Sequential()
 
@@ -145,6 +173,28 @@ local function createPaletteChecker512(opt)
     network:add(cudnn.SpatialConvolution(512,2,1,1,1,1,0,0))
     return network
 end
+
+--[[local function createPaletteChecker128(opt)
+    local network = nn.Sequential()
+
+    addPaletteConv(network, 128, 64, 3, 3) -- 128x3x3
+    addPaletteConv(network, 64, 32, 3, 3) -- 128x1x1
+    network:add(cudnn.SpatialConvolution(32,2,1,1,1,1,0,0))
+    
+    return network
+end
+
+local function createPaletteChecker256(opt)
+    local network = nn.Sequential()
+
+    addPaletteConv(network, 256, 128, 3, 3) -- 128x3x3
+    addPaletteConv(network, 128, 64, 3, 3) -- 128x1x1
+    network:add(cudnn.SpatialConvolution(64,2,1,1,1,1,0,0))
+    
+    --network:add(network, nn.SpatialSoftMax()) -- 2x1x1
+    
+    return network
+end]]
 
 local function createPaletteChecker(opt, channelCount)
     if channelCount == 128 then
@@ -276,6 +326,50 @@ local function createPaletteUpdateNet(opt, subnets, vggLayers)
     return paletteUpdateNet
 end
 
+local function createPerceptualLossNet(opt, subnets, vggLayers)
+    -- Input nodes
+    local tranformedImages = nn.Identity()():annotate({name = 'tranformedImages'})
+    local targetContent = nn.Identity()():annotate({name = 'targetContent'})
+    local paletteCategories1 = nn.Identity()():annotate({name = 'paletteCategories1'})
+    local paletteCategories2 = nn.Identity()():annotate({name = 'paletteCategories2'})
+
+    local vggStep = tranformedImages
+    local palette1Loss, palette2Loss, contentLoss
+    for i, layer in ipairs(vggLayers) do
+        vggStep = layer(vggStep):annotate({name = 'vggLayer' .. i .. '_' .. layer.name})
+        
+        if layer.name == opt.styleLayers[1].name then
+            print('adding palette1 loss')
+            local predictedCategories1 = subnets.paletteCheckers[1](vggStep)
+            palette1Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories1, paletteCategories1}):annotate{name = 'palette1Loss'}
+        end
+        
+        if layer.name == opt.styleLayers[2].name then
+            print('adding palette2 loss')
+            local predictedCategories2 = subnets.paletteCheckers[2](vggStep)
+            palette2Loss = cudnn.SpatialCrossEntropyCriterion()({predictedCategories2, paletteCategories2}):annotate{name = 'palette2Loss'}
+        end
+        
+        if layer.name == opt.contentLayer then
+            print('adding content loss')
+            contentLoss = nn.MSECriterion()({vggStep, targetContent}):annotate{name = 'contentLoss'}
+        end
+    end
+    
+    local contentLossMul = nn.MulConstant(opt.contentWeight, true)(contentLoss)
+    local palette1LossMul = nn.MulConstant(opt.palette1Weight, true)(palette1Loss)
+    local palette2LossMul = nn.MulConstant(opt.palette2Weight, true)(palette2Loss)
+    
+    -- Full training network including all loss functions
+    local perceptualLossNet = nn.gModule({tranformedImages, targetContent, paletteCategories1, paletteCategories2},
+                                         {contentLossMul, palette1LossMul, palette2LossMul})
+
+    cudnn.convert(perceptualLossNet, cudnn)
+    perceptualLossNet = perceptualLossNet:cuda()
+    graph.dot(perceptualLossNet.fg, 'perceptualLossNet', 'perceptualLossNet')
+    return perceptualLossNet
+end
+
 local function createModel(opt)
     print('Creating model')
 
@@ -292,6 +386,7 @@ local function createModel(opt)
     end
     r.styleTransformNet, r.transformerOutput, r.predictedCategories1, r.predictedCategories2, r.paletteValues1, r.paletteValues2 = createStyleTransformNet(opt, r, r.vggLayers)
     r.paletteUpdateNet = createPaletteUpdateNet(opt, r, r.vggLayers)
+    r.perceptualLossNet = createPerceptualLossNet(opt, r, r.vggLayers)
     
     collectgarbage()
     

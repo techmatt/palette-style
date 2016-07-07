@@ -14,6 +14,8 @@ function M.parse(arg)
     
     cmd:option('-transformerBatchSize', 8, 'mini-batch size (1 = pure stochastic)')
     cmd:option('-transformerSuperBatches', 1, 'TODO')
+    cmd:option('-paletteSuperBatches', 1, 'TODO')
+    
     
     cmd:option('-imageSize', 256, 'Smallest side of the resized image')
     cmd:option('-cropSize', 224, 'Height and Width of image crop to be used as input layer')
@@ -23,26 +25,31 @@ function M.parse(arg)
     
     cmd:option('-maxVGGDepth', 14, 'TODO')
     cmd:option('-contentLayer', 'relu2_2', 'TODO')
-    cmd:option('-styleLayers', { [1] = { name = 'relu2_1', channels = 128, finalDim = 108 },
-                                 [2] = { name = 'relu3_2', channels = 256, finalDim = 52 }, --maxVGGDepth 14
+    cmd:option('-styleLayers', { [1] = { name = 'relu2_1', channels = 128, finalDim = 108 }, -- 108
+                                 [2] = { name = 'relu3_2', channels = 256, finalDim = 52 }, --maxVGGDepth 14 -- 52
                                  --[1] = { name = 'relu2_2', channels = 128, finalDim = 108 },
                                  --[x] = { name = 'relu4_1', channels = 512, finalDim = 24 }, --maxVGGDepth 21
                                  }, 'TODO')
-    cmd:option('-activeStyleLayerIndex', 2, 'The index into styleLayers currently being trained')
-    cmd:option('-negativePaletteRate', 0.5, 'TODO')
     cmd:option('-paletteDimension', 5, 'TODO')
-    
-    cmd:option('-contentWeight', 0.0000001, 'TODO')
+    --0.0000001 is too much
+    --0.00000001 is sort of okay
+    --0.00000003 is still pretty low
+    --0.00000005 is still pretty low
+    --0.000000075 is good for self-portrait
+    --0.000000075 is too high for water color
+    cmd:option('-contentWeight', 0.00000001, 'TODO')
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
-    cmd:option('-TVWeight', 1e-4, 'TODO')
+    --cmd:option('-TVWeight', 1e-6, 'TODO')
+    cmd:option('-TVWeight', 0, 'TODO')
     
-    cmd:option('-negativeExamplesIteration', 1, 'TODO')
-    cmd:option('-negativeSamples', 200, 'TODO')
+    --cmd:option('-positiveImageList', 'images/positives/', 'TODO')
+    cmd:option('-positiveImageList', 'images/positives-watercolor/', 'TODO')
     
-    cmd:option('-positiveImageList', 'images/positives/', 'TODO')
+    cmd:option('-imageIters', 10000, 'TODO')
     
-    cmd:option('-styleCacheDir', 'styleCache/', 'TODO')
+    cmd:option('-runImageOptimization', false, 'TODO')
+    cmd:option('-trainTranformer', true, 'TODO')
     
     ------------- Training options --------------------
     cmd:option('-epochCount',      100,    'Number of total epochs to run')
@@ -56,7 +63,6 @@ function M.parse(arg)
     local opt = cmd:parse(arg or {})
     
     opt.paletteBorder = (opt.paletteDimension - 1) / 2
-    opt.activeStyleLayerName = opt.styleLayers[opt.activeStyleLayerIndex].name
     
     return opt
 end
