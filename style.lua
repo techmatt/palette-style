@@ -16,8 +16,14 @@ local paletteLoader = require('paletteLoader')
 local imageLoader = require('imageLoader')
 local paletteUtil = require('paletteUtil')
 
+--util.writeAllLines('data/imageListCOCO.txt', util.getFileListRecursive('/home/mdfisher/data/COCO/'))
+
+print('name the output for this run:')
+local response = io.read()
+
 -- Create unique directory for outputs (based on timestamp)
-opt.outDir = string.format('%s_%u/', opt.outBaseDir, os.time())
+--opt.outDir = string.format('%s_%u/', opt.outBaseDir, os.time())
+opt.outDir = string.format('%s_%s/', opt.outBaseDir, response)
 print('Saving everything to: ' .. opt.outDir)
 lfs.mkdir(opt.outDir)
 lfs.mkdir(opt.outDir .. 'models/')

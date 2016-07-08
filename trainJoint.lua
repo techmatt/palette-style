@@ -263,8 +263,8 @@ local function train(model, loader, opt, epoch)
 
     -- clear the intermediate states in the model before saving to disk
     -- this saves lots of disk space
-    --model.transformer:clearState()
-    --torch.save(opt.outDir .. 'models/transformer' .. epoch .. '.t7', model.transformer)
+    model.transformer:clearState()
+    torch.save(opt.outDir .. 'models/transformer' .. epoch .. '.t7', model.transformer)
     
     model.vggNet:clearState()
     model.paletteCheckers[1]:clearState()
@@ -292,7 +292,9 @@ local function train(model, loader, opt, epoch)
     for i = 1, opt.epochSize do
         batchNumber = batchNumber + 1
         trainTransformer(model, loader, opt, epoch)
-        trainPalette(model, loader, opt, epoch)
+        if totalBatchCount < opt.paletteBatchCutoff then
+            trainPalette(model, loader, opt, epoch)
+        end
         totalBatchCount = totalBatchCount + 1
     end
     

@@ -37,14 +37,16 @@ function M.parse(arg)
     --0.00000005 is still pretty low
     --0.000000075 is good for self-portrait
     --0.000000075 is too high for water color
-    cmd:option('-contentWeight', 0.00000001, 'TODO')
+    cmd:option('-contentWeight', 0.000000002, 'TODO')
     cmd:option('-palette1Weight', 1.0, 'TODO')
     cmd:option('-palette2Weight', 1.0, 'TODO')
     --cmd:option('-TVWeight', 1e-6, 'TODO')
     cmd:option('-TVWeight', 0, 'TODO')
     
+    cmd:option('-paletteBatchCutoff', 5000, 'TODO')
+    
     --cmd:option('-positiveImageList', 'images/positives/', 'TODO')
-    cmd:option('-positiveImageList', 'images/positives-watercolor/', 'TODO')
+    cmd:option('-positiveImageList', 'images/positives-watercolor2/', 'TODO')
     
     cmd:option('-imageIters', 10000, 'TODO')
     
